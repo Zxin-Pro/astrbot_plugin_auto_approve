@@ -1,0 +1,5 @@
+name: astrbot_plugin_auto_approve
+desc: 入群自动审核（通过词/拒绝词/广告特征/LLM 判定）+ 防刷屏禁言（秒/分/时三档速率、夜间阈值、重复消息检测），核心逻辑取自 QQ群智能守护者
+version: v2.0.0
+author: Zxin-Pro
+repo: https://github.com/Zxin-Pro/astrbot_plugin_auto_approve

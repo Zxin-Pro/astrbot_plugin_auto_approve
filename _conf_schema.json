@@ -1,0 +1,168 @@
+{
+  "group_whitelist": {
+    "description": "生效群白名单（QQ群号列表，留空=所有群生效）",
+    "type": "list",
+    "items": {"type": "string"},
+    "hint": "如 [\"123456\", \"654321\"]，留空对所有群生效",
+    "default": []
+  },
+  "join_audit_enabled": {
+    "description": "启用入群自动审核",
+    "type": "bool",
+    "default": false
+  },
+  "join_accept_keywords": {
+    "description": "入群通过词（答案包含即通过）",
+    "type": "list",
+    "items": {"type": "string"},
+    "hint": "匹配用户填写的验证答案，问题原文不参与匹配",
+    "default": []
+  },
+  "join_reject_keywords": {
+    "description": "入群拒绝词（答案包含即拒绝，优先级最高）",
+    "type": "list",
+    "items": {"type": "string"},
+    "default": []
+  },
+  "join_reject_reason": {
+    "description": "拒绝时的理由（发送给申请人）",
+    "type": "string",
+    "hint": "留空使用内置默认理由",
+    "default": ""
+  },
+  "join_reject_ads": {
+    "description": "广告引流特征拦截（微信号/QQ号/外链/刷单兼职等）",
+    "type": "bool",
+    "default": true
+  },
+  "join_accept_overrides_ads": {
+    "description": "通过词优先于广告特征拦截",
+    "type": "bool",
+    "hint": "答案命中通过词时即使带广告特征也放行",
+    "default": true
+  },
+  "join_default_action": {
+    "description": "默认动作（未命中任何规则时）",
+    "type": "string",
+    "options": ["manual", "accept", "reject"],
+    "hint": "manual=转人工不介入 / accept=直接通过 / reject=直接拒绝",
+    "default": "manual"
+  },
+  "join_audit_notify": {
+    "description": "审核结果发群通知",
+    "type": "bool",
+    "default": true
+  },
+  "join_llm_enabled": {
+    "description": "启用 LLM 智能入群审核",
+    "type": "bool",
+    "hint": "词库未命中时交给 LLM 结合答案判断，失败自动回退本地规则",
+    "default": false
+  },
+  "join_llm_provider_id": {
+    "description": "审核用 LLM Provider ID（留空=当前默认 Provider）",
+    "type": "string",
+    "default": ""
+  },
+  "join_llm_timeout": {
+    "description": "LLM 审核超时（秒）",
+    "type": "int",
+    "default": 60
+  },
+  "anti_flood_enabled": {
+    "description": "启用防刷屏禁言",
+    "type": "bool",
+    "default": true
+  },
+  "anti_flood_admin_exempt": {
+    "description": "群主/管理员豁免防刷屏",
+    "type": "bool",
+    "default": true
+  },
+  "anti_flood_rate_per_second": {
+    "description": "每秒消息上限（0=关闭该档）",
+    "type": "int",
+    "default": 5
+  },
+  "anti_flood_rate_per_minute": {
+    "description": "每分钟消息上限（0=关闭该档）",
+    "type": "int",
+    "default": 20
+  },
+  "anti_flood_rate_per_hour": {
+    "description": "每小时消息上限（0=关闭该档）",
+    "type": "int",
+    "default": 60
+  },
+  "anti_flood_night_enabled": {
+    "description": "启用夜间独立阈值",
+    "type": "bool",
+    "default": false
+  },
+  "anti_flood_night_start_hour": {
+    "description": "夜间时段开始（小时，0-23）",
+    "type": "int",
+    "default": 0
+  },
+  "anti_flood_night_end_hour": {
+    "description": "夜间时段结束（小时，0-23，支持跨天如 23→6）",
+    "type": "int",
+    "default": 6
+  },
+  "anti_flood_night_rate_per_second": {
+    "description": "夜间每秒上限",
+    "type": "int",
+    "default": 3
+  },
+  "anti_flood_night_rate_per_minute": {
+    "description": "夜间每分钟上限",
+    "type": "int",
+    "default": 10
+  },
+  "anti_flood_night_rate_per_hour": {
+    "description": "夜间每小时上限",
+    "type": "int",
+    "default": 30
+  },
+  "repeat_detect_enabled": {
+    "description": "启用重复消息检测",
+    "type": "bool",
+    "hint": "窗口内同一内容重复达到次数即触发",
+    "default": true
+  },
+  "repeat_detect_window_seconds": {
+    "description": "重复消息检测窗口（秒，最大3600）",
+    "type": "int",
+    "default": 120
+  },
+  "repeat_detect_count": {
+    "description": "重复消息触发次数",
+    "type": "int",
+    "default": 3
+  },
+  "long_text_threshold": {
+    "description": "单条长文本字数上限（0=关闭）",
+    "type": "int",
+    "default": 0
+  },
+  "anti_flood_mute_seconds": {
+    "description": "刷屏禁言时长（秒）",
+    "type": "int",
+    "default": 600
+  },
+  "anti_flood_recall_messages": {
+    "description": "触发时撤回窗口内消息",
+    "type": "bool",
+    "default": false
+  },
+  "anti_flood_recall_count": {
+    "description": "最多撤回条数",
+    "type": "int",
+    "default": 10
+  },
+  "anti_flood_notify": {
+    "description": "处罚后发群通知",
+    "type": "bool",
+    "default": true
+  }
+}
