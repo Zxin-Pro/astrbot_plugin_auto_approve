@@ -28,7 +28,7 @@ _QUEUE_MAX = 200
     "astrbot_plugin_auto_approve",
     "Zxin-Pro",
     "入群自动审核（通过词/拒绝词/LLM 判定）+ 防刷屏禁言（三档速率/夜间阈值/重复消息）",
-    "2.1.0",
+    "2.1.1",
 )
 class GroupGuardLitePlugin(Star):
     def __init__(self, context: Context, config: AstrBotConfig):
@@ -286,7 +286,8 @@ class GroupGuardLitePlugin(Star):
 
     # ================================================================ 入群审核
     async def _handle_join_request(self, event: AstrMessageEvent, raw: dict):
-        if not self._cfg("join_audit_enabled", False):
+        if not self._cfg("join_audit_enabled", True):
+            logger.info("[auto_approve] 入群审核开关未开启 跳过 (join_audit_enabled)")
             return
         if raw.get("request_type") != "group" or raw.get("sub_type") != "add":
             return  # 只审「申请加群」，群邀请不介入
@@ -294,7 +295,14 @@ class GroupGuardLitePlugin(Star):
         user_id = str(raw.get("user_id", ""))
         flag = str(raw.get("flag", ""))
         comment = str(raw.get("comment", "") or "")
-        if not group_id or not flag or not self._group_allowed(group_id):
+        logger.info(
+            f"[auto_approve] 收到加群申请 group={group_id} user={user_id} "
+            f"comment={comment[:60]!r}"
+        )
+        if not group_id or not flag:
+            return
+        if not self._group_allowed(group_id):
+            logger.info(f"[auto_approve] 群 {group_id} 不在白名单 跳过")
             return
         dedup_key = f"join:{flag}"
         if dedup_key in self._processing_flags:
@@ -335,6 +343,7 @@ class GroupGuardLitePlugin(Star):
         answer = self._extract_answer(comment)
         answer_lower = answer.lower()
 
+        logger.info(f"[auto_approve] 开始审核 answer={answer[:60]!r}")
         # 1. 拒绝词优先
         reject_kw = self._keyword_hit(answer_lower, self._cfg_list("join_reject_keywords"))
         if reject_kw:
@@ -394,6 +403,7 @@ class GroupGuardLitePlugin(Star):
 
         # 6. 默认动作
         action = str(self._cfg("join_default_action", "manual")).strip().lower()
+        logger.info(f"[auto_approve] 未命中任何规则 走默认动作={action}")
         if action == "accept":
             return await self._finish_join(
                 event, flag, group_id, user_id, comment, True, "", "默认通过",

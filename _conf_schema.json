@@ -15,7 +15,7 @@
   "join_audit_enabled": {
     "description": "启用入群自动审核",
     "type": "bool",
-    "default": false
+    "default": true
   },
   "join_accept_keywords": {
     "description": "入群通过词（答案包含即通过）",
@@ -52,7 +52,7 @@
     "type": "string",
     "options": ["manual", "accept", "reject"],
     "hint": "manual=转人工不介入 / accept=直接通过 / reject=直接拒绝",
-    "default": "manual"
+    "default": "accept"
   },
   "join_audit_notify": {
     "description": "审核结果发群通知",
