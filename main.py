@@ -28,7 +28,7 @@ _QUEUE_MAX = 200
     "astrbot_plugin_auto_approve",
     "Zxin-Pro",
     "入群自动审核（通过词/拒绝词/LLM 判定）+ 防刷屏禁言（三档速率/夜间阈值/重复消息）",
-    "2.1.1",
+    "2.2.0",
 )
 class GroupGuardLitePlugin(Star):
     def __init__(self, context: Context, config: AstrBotConfig):
@@ -173,20 +173,6 @@ class GroupGuardLitePlugin(Star):
             return ""
 
     # ================================================================ 管理指令（禁言/解禁/踢人）
-    def _parse_target(self, event, args) -> str:
-        """从 @ 组件或参数里解析目标 QQ 号。"""
-        try:
-            for comp in event.get_messages():
-                if comp.__class__.__name__ == "At":
-                    qq = getattr(comp, "qq", "")
-                    if qq and str(qq) != "all":
-                        return str(qq)
-        except Exception:
-            pass
-        text = " ".join(str(a) for a in args if a)
-        m = re.search(r"\d{5,}", text)
-        return m.group(0) if m else ""
-
     async def _cmd_gate(self, event):
         """管理指令门禁。返回 (group_id, "") 或 (None, 错误提示)。"""
         gid = self._safe_group_id(event)
@@ -209,79 +195,129 @@ class GroupGuardLitePlugin(Star):
             return None, "没有权限使用该指令"
         return gid, ""
 
+    def _extract_at_targets(self, event) -> list:
+        """从消息链提取 At 目标（与守护者同款实现）。"""
+        targets = []
+        seen = set()
+        try:
+            chain = event.get_messages() or []
+        except Exception:
+            chain = []
+        for seg in chain:
+            qq = None
+            if isinstance(seg, dict):
+                if seg.get("type") == "at":
+                    qq = (seg.get("data", {}) or {}).get("qq", "")
+            else:
+                seg_cls = type(seg).__name__
+                if seg_cls == "At" or (hasattr(seg, "type") and getattr(seg, "type", "") == "at"):
+                    qq = getattr(seg, "qq", "") or ""
+            qq = str(qq).strip()
+            if not qq or qq.lower() in ("all", "0"):
+                continue
+            if qq not in seen and qq.isdigit():
+                seen.add(qq)
+                targets.append(qq)
+        return targets
+
     @staticmethod
-    def _extract_int(args) -> int:
-        for a in reversed(list(args)):
-            m = re.search(r"\d+", str(a))
-            if m:
-                return int(m.group(0))
-        return 0
+    def _safe_int(value, default: int) -> int:
+        try:
+            return int(str(value).strip())
+        except (TypeError, ValueError):
+            return default
 
     @filter.command("禁言")
-    async def cmd_ban(self, event: AstrMessageEvent, *args):
-        """用法: /禁言 <@某人或QQ号> <分钟>"""
+    async def cmd_ban(self, event: AstrMessageEvent):
+        '''禁言指定群成员。用法: /禁言 <QQ号或@某人> <分钟>'''
         gid, err = await self._cmd_gate(event)
         if not gid:
             yield event.plain_result(err)
             return
-        target = self._parse_target(event, args)
-        if not target:
-            yield event.plain_result("用法: /禁言 <@某人或QQ号> <分钟>")
+        args = event.message_str.split()
+        at_targets = self._extract_at_targets(event)
+        if len(args) < 2 and not at_targets:
+            yield event.plain_result("用法: /禁言 <QQ号或@某人> [时长(分钟)]\n示例: /禁言 123456 30 或 /禁言 @张三 30")
             return
-        minutes = self._extract_int(args) or 10
-        client = await self._get_client(event)
-        ok, e = await self._call_api(
-            client, "set_group_ban",
-            group_id=int(gid), user_id=int(target), duration=minutes * 60,
-        ) if client else (False, "无法获取客户端")
-        if ok:
-            logger.info(f"[auto_approve] 指令禁言 group={gid} user={target} {minutes}分钟")
-            yield event.plain_result(f"已将 {target} 禁言 {minutes} 分钟")
-        else:
+        try:
+            user_id = at_targets[0] if at_targets else str(args[1]).strip()
+            raw_min = args[2] if len(args) > 2 else (args[1] if at_targets and len(args) > 1 else None)
+            minutes = min(max(self._safe_int(raw_min, 10), 1), 43200)
+            client = await self._get_client(event)
+            if not client:
+                yield event.plain_result("禁言失败: 无法获取客户端")
+                return
+            ok, e = await self._call_api(
+                client, "set_group_ban",
+                group_id=int(gid), user_id=int(user_id), duration=minutes * 60,
+            )
+            if not ok:
+                yield event.plain_result(f"禁言失败: {e}")
+                return
+            logger.info(f"[auto_approve] 指令禁言 group={gid} user={user_id} {minutes}分钟")
+            yield event.plain_result(f"已禁言 {user_id}，时长 {minutes} 分钟")
+        except Exception as e:
             yield event.plain_result(f"禁言失败: {e}")
 
     @filter.command("解禁")
-    async def cmd_unban(self, event: AstrMessageEvent, *args):
-        """用法: /解禁 <@某人或QQ号>"""
+    async def cmd_unban(self, event: AstrMessageEvent):
+        '''解除指定群成员禁言。用法: /解禁 <QQ号或@某人>'''
         gid, err = await self._cmd_gate(event)
         if not gid:
             yield event.plain_result(err)
             return
-        target = self._parse_target(event, args)
-        if not target:
-            yield event.plain_result("用法: /解禁 <@某人或QQ号>")
+        args = event.message_str.split()
+        at_targets = self._extract_at_targets(event)
+        if len(args) < 2 and not at_targets:
+            yield event.plain_result("用法: /解禁 <QQ号或@某人>\n示例: /解禁 123456 或 /解禁 @张三")
             return
-        client = await self._get_client(event)
-        ok, e = await self._call_api(
-            client, "set_group_ban",
-            group_id=int(gid), user_id=int(target), duration=0,
-        ) if client else (False, "无法获取客户端")
-        if ok:
-            logger.info(f"[auto_approve] 指令解禁 group={gid} user={target}")
-            yield event.plain_result(f"已解除 {target} 的禁言")
-        else:
+        try:
+            user_id = at_targets[0] if at_targets else str(args[1]).strip()
+            client = await self._get_client(event)
+            if not client:
+                yield event.plain_result("解禁失败: 无法获取客户端")
+                return
+            # OneBot 协议 duration=0 表示解除禁言
+            ok, e = await self._call_api(
+                client, "set_group_ban",
+                group_id=int(gid), user_id=int(user_id), duration=0,
+            )
+            if not ok:
+                yield event.plain_result(f"解禁失败: {e}")
+                return
+            logger.info(f"[auto_approve] 指令解禁 group={gid} user={user_id}")
+            yield event.plain_result(f"已解除 {user_id} 的禁言")
+        except Exception as e:
             yield event.plain_result(f"解禁失败: {e}")
 
     @filter.command("踢人")
-    async def cmd_kick(self, event: AstrMessageEvent, *args):
-        """用法: /踢人 <@某人或QQ号>"""
+    async def cmd_kick(self, event: AstrMessageEvent):
+        '''将成员移出群聊。用法: /踢人 <QQ号或@某人>'''
         gid, err = await self._cmd_gate(event)
         if not gid:
             yield event.plain_result(err)
             return
-        target = self._parse_target(event, args)
-        if not target:
-            yield event.plain_result("用法: /踢人 <@某人或QQ号>")
+        args = event.message_str.split()
+        at_targets = self._extract_at_targets(event)
+        if len(args) < 2 and not at_targets:
+            yield event.plain_result("用法: /踢人 <QQ号或@某人>\n示例: /踢人 123456 或 /踢人 @张三")
             return
-        client = await self._get_client(event)
-        ok, e = await self._call_api(
-            client, "set_group_kick",
-            group_id=int(gid), user_id=int(target), reject_add_request=False,
-        ) if client else (False, "无法获取客户端")
-        if ok:
-            logger.info(f"[auto_approve] 指令踢人 group={gid} user={target}")
-            yield event.plain_result(f"已将 {target} 移出群聊")
-        else:
+        try:
+            user_id = at_targets[0] if at_targets else str(args[1]).strip()
+            client = await self._get_client(event)
+            if not client:
+                yield event.plain_result("踢人失败: 无法获取客户端")
+                return
+            ok, e = await self._call_api(
+                client, "set_group_kick",
+                group_id=int(gid), user_id=int(user_id), reject_add_request=False,
+            )
+            if not ok:
+                yield event.plain_result(f"踢人失败: {e}")
+                return
+            logger.info(f"[auto_approve] 指令踢人 group={gid} user={user_id}")
+            yield event.plain_result(f"已将 {user_id} 移出群聊")
+        except Exception as e:
             yield event.plain_result(f"踢人失败: {e}")
 
     # ================================================================ 入群审核
