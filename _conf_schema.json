@@ -1,4 +1,10 @@
 {
+  "admin_commands_enabled": {
+    "description": "启用 /禁言 /解禁 /踢人 管理指令",
+    "type": "bool",
+    "hint": "仅 AstrBot 管理员或群主/群管理员可用",
+    "default": true
+  },
   "group_whitelist": {
     "description": "生效群白名单（QQ群号列表，留空=所有群生效）",
     "type": "list",
